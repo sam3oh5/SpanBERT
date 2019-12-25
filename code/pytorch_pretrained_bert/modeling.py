@@ -1192,12 +1192,24 @@ class BertForQuestionAnswering(BertPreTrainedModel):
         self.bert = BertModel(config)
         # TODO check with Google if it's normal there is no dropout on the token classifier of SQuAD in the TF version
         # self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self.qa_outputs = nn.Linear(config.hidden_size, 2)
+        self.qa_outputs = nn.Linear(config.hidden_size*3, 2)
         self.apply(self.init_bert_weights)
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, start_positions=None, end_positions=None):
         sequence_output, _ = self.bert(input_ids, token_type_ids, attention_mask, output_all_encoded_layers=False)
-        logits = self.qa_outputs(sequence_output)
+        batch = sequence_output.size()[0]
+        length = sequence_output.size()[1]
+        dim = sequence_output.size()[2]
+        pad = torch.zeros(batch, 1, dim)
+        padded_outputs = torch.cat((pad, sequence_output, pad), dim=1)
+        catted_outputs = None
+        for idx in range(1, length+1):
+            cat_op = torch.cat((padded_outputs[idx-1], padded_outputs[idx], padded_outputs[idx+1]), dim=2)
+            if not catted_outputs:
+                catted_outputs = cat_op
+            else:
+                catted_logits = torch.cat((catted_outputs, cat_op), dim=1)
+        logits = self.qa_outputs(catted_outputs)
         start_logits, end_logits = logits.split(1, dim=-1)
         start_logits = start_logits.squeeze(-1)
         end_logits = end_logits.squeeze(-1)
