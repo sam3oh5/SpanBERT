@@ -1200,15 +1200,15 @@ class BertForQuestionAnswering(BertPreTrainedModel):
         batch = sequence_output.size()[0]
         length = sequence_output.size()[1]
         dim = sequence_output.size()[2]
-        pad = torch.zeros(batch, 1, dim)
+        pad = torch.zeros(batch, 1, dim).cuda()
         padded_outputs = torch.cat((pad, sequence_output, pad), dim=1)
         catted_outputs = None
         for idx in range(1, length+1):
-            cat_op = torch.cat((padded_outputs[idx-1], padded_outputs[idx], padded_outputs[idx+1]), dim=2)
-            if not catted_outputs:
+            cat_op = torch.cat((padded_outputs[:,idx-1:idx,:], padded_outputs[:,idx:idx+1,:], padded_outputs[:,idx+1:idx+2,:]), dim=2)
+            if catted_outputs is None:
                 catted_outputs = cat_op
             else:
-                catted_logits = torch.cat((catted_outputs, cat_op), dim=1)
+                catted_outputs = torch.cat((catted_outputs, cat_op), dim=1)
         logits = self.qa_outputs(catted_outputs)
         start_logits, end_logits = logits.split(1, dim=-1)
         start_logits = start_logits.squeeze(-1)
