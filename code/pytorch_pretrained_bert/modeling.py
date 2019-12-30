@@ -1204,7 +1204,7 @@ class BertForQuestionAnswering(BertPreTrainedModel):
         padded_outputs = torch.cat((pad, sequence_output, pad), dim=1)
         catted_outputs = None
         for idx in range(1, length+1):
-            cat_op = padded_outputs[:,idx-1:idx+2,:]
+            cat_op = padded_outputs[:,idx-1:idx+2,:].view(batch, 1, -1)
             if catted_outputs is None:
                 catted_outputs = cat_op
             else:
